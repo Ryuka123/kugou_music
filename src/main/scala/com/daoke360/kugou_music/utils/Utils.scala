@@ -42,9 +42,39 @@ object Utils {
   def base64Decode(base64EndcodeString: String) = {
     Base64.getDecoder.decode(base64EndcodeString)
   }
-/*
-  def main(args: Array[String]): Unit = {
-    val str = base64Decode("eyJrdGluZ1Rva2VuIjoiQzVRUzZUZUNnb3NZcURkOGVmcnZaZEZoVkpWWmZtNXNLdktzR3VxQVp5MFpGN242RFhpZXB4XC8wM0prdm1zN2RkeDk2Y2s5aG05N1FKM0h0SmZxOHpRPT0iLCJiZWhhdmlvcktleSI6IkRGU0o0MDAiLCJiZWhhdmlvckRhdGEiOnsiem9uZ0tleSI6IkZNNzAyIiwicHJvZ3JhbUlkIjoiMzEwMTMxIiwiYWxidW1JZCI6IjE2MjQ5IiwiYW5jaG9ySWQiOiIxMTUwNSIsInBsYXlUaW1lIjowLCJvbi1vZmYiOmZhbHNlfX0=")
-    println(new String(str))
-  }*/
+
+  /**
+    * 验证日期是否是 yyyy-MM-dd
+    *
+    * @param date
+    */
+  def validateDate(date: String) = {
+    val reg = "((((19|20)\\d{2})-(0?(1|[3-9])|1[012])-(0?[1-9]|[12]\\d|30))|(((19|20)\\d{2})-(0?[13578]|1[02])-31)|(((19|20)\\d{2})-0?2-(0?[1-9]|1\\d|2[0-8]))|((((19|20)([13579][26]|[2468][048]|0[48]))|(2000))-0?2-29))$"
+    val pattern = Pattern.compile(reg)
+    pattern.matcher(date).matches()
+  }
+  /**
+    * 将时间戳转换成指定格式的日期
+    *
+    * @param longTime
+    * @param pattern
+    * @return
+    */
+  def formatDate(longTime: Long, pattern: String) = {
+    val sdf = new SimpleDateFormat(pattern)
+    val calendar = sdf.getCalendar
+    calendar.setTimeInMillis(longTime)
+    sdf.format(calendar.getTime)
+  }
+  /**
+    * 将字符串时间转换成 long类型的时间戳
+    *
+    * @param strDate 2017-10-23
+    * @param pattern yyyy-MM-dd
+    */
+  def parseDateToLong(strDate: String, pattern: String) = {
+    val sdf = new SimpleDateFormat(pattern)
+    sdf.parse(strDate).getTime
+  }
+
 }

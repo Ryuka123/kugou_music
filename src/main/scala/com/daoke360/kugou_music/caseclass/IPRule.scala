@@ -6,5 +6,5 @@ package com.daoke360.kugou_music.caseclass
   * 刀客程序员官网：http://www.daoke360.com
   * QQ:272488352
   */
-case class IPRule(var startIP: Long, var endIP: Long, var country: String, var province: String, var city: String) {
+case class IPRule(var startIP: Long, var endIP: Long, var country: String, var province: String, var city: String) extends Serializable {
 }

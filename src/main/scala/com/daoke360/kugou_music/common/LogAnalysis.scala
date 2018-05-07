@@ -49,9 +49,9 @@ object LogAnalysis {
         if (data.length == 2) {
           val behavior = data(0)
           if (behavior.equals("bData")) {
-            logMap.put(LogConstants.lOG_COLUMNS_NAME_BEHAVIOR_FLAG, "bData")
+            logMap.put(LogConstants.LOG_COLUMNS_NAME_BEHAVIOR_FLAG, "bData")
           } else if (behavior.equals("pData")) {
-            logMap.put(LogConstants.lOG_COLUMNS_NAME_BEHAVIOR_FLAG, "pData")
+            logMap.put(LogConstants.LOG_COLUMNS_NAME_BEHAVIOR_FLAG, "pData")
           }
           //取出base64转码的字符串
           val base64EncodeString = data(1)
@@ -66,7 +66,40 @@ object LogAnalysis {
   }
 
   //处理behaviorData数据, {"albumId":"16249","anchorId":"11505","on-off":false,"playTime":0,"programId":"310131","zongKey":"FM702"}
-  def handleBehaviorData(logMap: mutable.Map[String, String]) ={
+  private def handleBehaviorData(logMap: mutable.Map[String, String]) = {
+    //获取用户行为数据
+    val behaviorData = logMap.getOrElse(LogConstants.LOG_COLUMNS_NAME_BEHAVIOR_DATA, null)
+    if (behaviorData != null) {
+      val objectArray = JSON.parseObject(behaviorData)
+      objectArray.entrySet().toArray().foreach(t2 => {
+        val kv = t2.toString.split("=")
+        logMap.put(kv(0), kv(1))
+      })
+    }
+  }
+
+  /**
+    * 处理设备信息（操作系统名称，手机型号等）
+    *
+    * @param deviceString "Dalvik/2.1.0 (Linux; U; Android 7.0; PRA-AL00X Build/HONORPRA-AL00X)" sendfileon
+    * @param logMap
+    */
+  private def handleDevice(deviceString: String, logMap: mutable.Map[String, String]) = {
+    try {
+      val fields = deviceString.split(";")
+      if (fields.length > 2) {
+        val os = fields(2).trim().split(" ")
+        if (os.length == 2) {
+          logMap.put(LogConstants.LOG_COLUMNS_NAME_OS_NAME, os(0))
+          logMap.put(LogConstants.LOG_COLUMNS_NAME_OS_VERSION, os(1))
+        }
+        val modelNum = fields(3).split("[/]")(1).split("[)]")(0)
+        logMap.put(LogConstants.LOG_COLUMNS_NAME_MODEL_NUM, modelNum)
+      }
+    } catch {
+      case e: Exception => println(e.getMessage)
+    }
+
   }
 
   /**
@@ -77,7 +110,7 @@ object LogAnalysis {
     */
   def analysisLog(logText: String, ipRules: Array[IPRule]) = {
     var logMap: mutable.Map[String, String] = null
-    if (StringUtils.isNotBlank(logText)) {
+    if (StringUtils.isNotBlank(logText) && logText.contains("bData")) {
       val fields = logText.split("[|]")
       if (fields.length == 8) {
         logMap = mutable.Map[String, String]()
@@ -95,16 +128,17 @@ object LogAnalysis {
         handleRequestParams(fields(4), logMap)
         //处理behaviorData数据
         handleBehaviorData(logMap)
+        //处理设备信息（操作系统名称，手机型号等）
+        handleDevice(fields(7), logMap)
+
       }
     }
+    logMap
   }
 
-  def main(args: Array[String]): Unit = {
-    val jsonStr = "{\"ktingToken\":\"C5QS6TeCgosYqDd8efrvZdFhVJVZfm5sKvKsGuqAZy0ZF7n6DXiepx\\/03Jkvms7ddx96ck9hm97QJ3HtJfq8zQ==\",\"behaviorKey\":\"DFSJ400\",\"behaviorData\":{\"zongKey\":\"FM702\",\"programId\":\"310131\",\"albumId\":\"16249\",\"anchorId\":\"11505\",\"playTime\":0,\"on-off\":false}}"
-    JSON.parseObject(jsonStr).entrySet().toArray.foreach(t2 => {
-      val fields = t2.toString.split("=")
-      println(fields.toBuffer)
-    })
-  }
-
+  /*  def main(args: Array[String]): Unit = {
+      var logText = "42.248.47.62|0.000|-|24/Apr/2018:03:14:26 +0800|GET /?bData=eyJrdGluZ1Rva2VuIjoiY1YzbjVhUVUxS3cyZUVJMkxRclAzNlFKNDduK1JcL3RMK0ZoUmpMd2pVRlN3UTc0T25hcnF4TnVNR1J6VFJmd29ocjZJNFBwempzd08waGdYTlRuREx3PT0iLCJiZWhhdmlvcktleSI6IkRGU0o0MDAiLCJiZWhhdmlvckRhdGEiOnsiem9uZ0tleSI6IkZNNzAyIiwicHJvZ3JhbUlkIjoiMjMxMzk2IiwiYWxidW1JZCI6IjE0NTExIiwiYW5jaG9ySWQiOiIxMTMzNiIsInBsYXlUaW1lIjo0MDIsIm9uLW9mZiI6ZmFsc2V9fQ== HTTP/1.1|200|5|\"Dalvik/2.1.0 (Linux; U; Android 7.0; PRA-AL00X Build/HONORPRA-AL00X)\" sendfileon"
+      logText = "117.136.39.93|5.000|-|24/Apr/2018:03:14:29 +0800|GET /?pData=eyJwYWNrYWdlTmFtZSI6ImNvbS5hbmRyb2lkLm1lZGlhY2VudGVyIiwibWFudWZhY3R1cmVyIjoi|200|5|\"-\" sendfileon"
+      println(analysisLog(logText, null))
+    }*/
 }
