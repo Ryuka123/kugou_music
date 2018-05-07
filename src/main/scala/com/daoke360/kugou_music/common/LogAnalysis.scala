@@ -73,7 +73,8 @@ object LogAnalysis {
       val objectArray = JSON.parseObject(behaviorData)
       objectArray.entrySet().toArray().foreach(t2 => {
         val kv = t2.toString.split("=")
-        logMap.put(kv(0), kv(1))
+        if (kv.length == 2)
+          logMap.put(kv(0), kv(1))
       })
     }
   }
@@ -109,29 +110,33 @@ object LogAnalysis {
     * @param ipRules
     */
   def analysisLog(logText: String, ipRules: Array[IPRule]) = {
-    var logMap: mutable.Map[String, String] = null
-    if (StringUtils.isNotBlank(logText) && logText.contains("bData")) {
-      val fields = logText.split("[|]")
-      if (fields.length == 8) {
-        logMap = mutable.Map[String, String]()
-        //解析ip
-        handleIP(fields(0), ipRules, logMap)
-        //处理请求时间
-        logMap.put(LogConstants.LOG_COLUMNS_NAME_ACCESS_TIME, Utils.parseLogServerTimeToLong(fields(3)).toString)
-        //处理请求方式
-        if (logText.contains("GET")) {
-          logMap.put(LogConstants.LOG_COLUMNS_NAME_REQUEST_TYPE, "GET")
-        } else {
-          logMap.put(LogConstants.LOG_COLUMNS_NAME_REQUEST_TYPE, "POST")
-        }
-        //处理请求数据
-        handleRequestParams(fields(4), logMap)
-        //处理behaviorData数据
-        handleBehaviorData(logMap)
-        //处理设备信息（操作系统名称，手机型号等）
-        handleDevice(fields(7), logMap)
 
+    var logMap: mutable.Map[String, String] = null
+    try {
+      if (StringUtils.isNotBlank(logText) && logText.contains("bData")) {
+        val fields = logText.split("[|]")
+        if (fields.length == 8) {
+          logMap = mutable.Map[String, String]()
+          //解析ip
+          handleIP(fields(0), ipRules, logMap)
+          //处理请求时间
+          logMap.put(LogConstants.LOG_COLUMNS_NAME_ACCESS_TIME, Utils.parseLogServerTimeToLong(fields(3)).toString)
+          //处理请求方式
+          if (logText.contains("GET")) {
+            logMap.put(LogConstants.LOG_COLUMNS_NAME_REQUEST_TYPE, "GET")
+          } else {
+            logMap.put(LogConstants.LOG_COLUMNS_NAME_REQUEST_TYPE, "POST")
+          }
+          //处理请求数据
+          handleRequestParams(fields(4), logMap)
+          //处理behaviorData数据
+          handleBehaviorData(logMap)
+          //处理设备信息（操作系统名称，手机型号等）
+          handleDevice(fields(7), logMap)
+        }
       }
+    } catch {
+      case e: Exception => println(e.getMessage)
     }
     logMap
   }
