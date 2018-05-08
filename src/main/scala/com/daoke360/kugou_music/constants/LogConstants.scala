@@ -34,4 +34,6 @@ object LogConstants {
   final val LOG_COLUMNS_NAME_OS_VERSION = "osVersion"
   //设备型号
   final val LOG_COLUMNS_NAME_MODEL_NUM = "modeNum"
+  //设备id
+  final val LOG_COLUMNS_NAME_DEVICE_ID = "deviceId"
 }

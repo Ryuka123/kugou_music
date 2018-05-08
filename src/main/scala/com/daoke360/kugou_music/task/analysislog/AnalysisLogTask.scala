@@ -10,7 +10,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.hadoop.hbase.client.Put
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable
-import org.apache.hadoop.hbase.mapred.{TableInputFormat, TableOutputFormat}
+import org.apache.hadoop.hbase.mapred.TableOutputFormat
 import org.apache.hadoop.mapred.JobConf
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkConf
@@ -95,14 +95,17 @@ object AnalysisLogTask {
       if (logMap == null) {
         filterAccumulator.add(1)
         false
+      } else if (!logMap.contains(LogConstants.LOG_COLUMNS_NAME_DEVICE_ID)) {
+        filterAccumulator.add(1)
+        false
       } else {
         true
       }
     })
     val tuple2RDD = logMapRDD.map(map => {
       val accessTime = map(LogConstants.LOG_COLUMNS_NAME_ACCESS_TIME)
-      val ip = map(LogConstants.LOG_COLUMNS_NAME_IP)
-      val rowKey = accessTime + "_" + ip.hashCode
+      val deviceId = map(LogConstants.LOG_COLUMNS_NAME_DEVICE_ID)
+      val rowKey = accessTime + "_" + deviceId.hashCode
       val put = new Put(rowKey.getBytes)
       map.foreach(t2 => {
         put.addColumn(LogConstants.LOG_HBASE_TABLE_FAMILY.getBytes, t2._1.getBytes, t2._2.getBytes())
