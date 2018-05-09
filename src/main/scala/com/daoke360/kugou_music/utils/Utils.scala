@@ -1,8 +1,11 @@
 package com.daoke360.kugou_music.utils
 
 import java.text.SimpleDateFormat
-import java.util.{Base64, Locale}
+import java.util.{Base64, Calendar, Locale}
 import java.util.regex.Pattern
+import java.math.BigDecimal
+
+import scala.math.BigDecimal.RoundingMode
 
 /**
   * Created by 黑桃K on 2018-5-7.
@@ -11,6 +14,44 @@ import java.util.regex.Pattern
   * QQ:272488352
   */
 object Utils {
+
+  /**
+    * 四舍五入
+    *
+    * @param doubleValue
+    * @param scale
+    * @return
+    */
+  def getScale(doubleValue: Double, scale: Int) = {
+    val bigDecimal = new BigDecimal(doubleValue)
+    bigDecimal.setScale(scale, RoundingMode.HALF_UP)
+  }
+
+  /**
+    * 日期加减
+    *
+    * @param longTime
+    * @param day
+    * @return
+    */
+  def caculateDate(longTime: Long, day: Int) = {
+    val calender = Calendar.getInstance()
+    calender.setTimeInMillis(longTime)
+    calender.add(Calendar.DAY_OF_MONTH, day)
+    calender.getTimeInMillis
+  }
+
+  /**
+    * 验证是否是一个数字
+    *
+    * @param numberString
+    * @return
+    */
+  def validateNumber(numberString: String) = {
+    val reg = "[0-9]{1,}"
+    val pattern = Pattern.compile(reg)
+    pattern.matcher(numberString).matches()
+  }
 
   /**
     * 验证ip是否符合ip格式
@@ -53,6 +94,7 @@ object Utils {
     val pattern = Pattern.compile(reg)
     pattern.matcher(date).matches()
   }
+
   /**
     * 将时间戳转换成指定格式的日期
     *
@@ -66,6 +108,7 @@ object Utils {
     calendar.setTimeInMillis(longTime)
     sdf.format(calendar.getTime)
   }
+
   /**
     * 将字符串时间转换成 long类型的时间戳
     *
