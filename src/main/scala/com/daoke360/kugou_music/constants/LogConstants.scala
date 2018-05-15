@@ -26,6 +26,8 @@ object LogConstants {
   final val LOG_COLUMNS_NAME_REQUEST_TYPE = "requestType"
   //用户行为标识
   final val LOG_COLUMNS_NAME_BEHAVIOR_FLAG = "behaviorFlag"
+  //用户行为Key的标识
+  final val LOG_COLUMNS_NAME_BEHAVIOR_KEY = "behaviorKey"
   //用户行为数据
   final val LOG_COLUMNS_NAME_BEHAVIOR_DATA = "behaviorData"
   //操作系统名称
@@ -36,4 +38,12 @@ object LogConstants {
   final val LOG_COLUMNS_NAME_MODEL_NUM = "modeNum"
   //设备id
   final val LOG_COLUMNS_NAME_DEVICE_ID = "deviceId"
+  //专辑id
+  final val LOG_COLUMNS_NAME_ALBUM_ID = "albumId"
+  //节目id
+  final val LOG_COLUMNS_NAME_PROGRAM_ID = "programId"
+  //主播id
+  final val LOG_COLUMNS_NAME_ANCHOR_ID = "anchorId"
+  //播放时长
+  final val LOG_COLUMNS_NAME_PLAY_TIME= "playTime"
 }

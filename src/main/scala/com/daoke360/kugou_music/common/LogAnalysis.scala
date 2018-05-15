@@ -118,7 +118,8 @@ object LogAnalysis {
         if (fields.length == 8) {
           logMap = mutable.Map[String, String]()
           //解析ip
-          handleIP(fields(0), ipRules, logMap)
+          if (ipRules != null)
+            handleIP(fields(0), ipRules, logMap)
           //处理请求时间
           logMap.put(LogConstants.LOG_COLUMNS_NAME_ACCESS_TIME, Utils.parseLogServerTimeToLong(fields(3)).toString)
           //处理请求方式

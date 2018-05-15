@@ -1,0 +1,193 @@
+package com.daoke360.kugou_music.task.tags
+
+import java.util.Properties
+
+import com.daoke360.kugou_music.bean.Logs
+import com.daoke360.kugou_music.caseclass.UserInterested
+import com.daoke360.kugou_music.constants.{LogConstants, TagsConstants}
+import com.daoke360.kugou_music.tags.Tags4UserInterested
+import com.daoke360.kugou_music.utils.Utils
+import org.apache.hadoop.hbase.client.{Result, Scan}
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable
+import org.apache.hadoop.hbase.mapreduce.TableInputFormat
+import org.apache.hadoop.hbase.protobuf.ProtobufUtil
+import org.apache.hadoop.hbase.util.{Base64, Bytes}
+import org.apache.hadoop.mapred.JobConf
+import org.apache.spark.sql.SparkSession
+
+/**
+  * Created by 黑桃K on 2018-5-14.
+  * 刀客程序员淘宝旗舰店：https://daoke360.taobao.com/
+  * 刀客程序员官网：http://www.daoke360.com
+  * QQ:272488352
+  */
+object MartTagForUserTask {
+
+
+  def validateArgs(args: Array[String]) = {
+    if (args.length < 1 && !Utils.validateDate(args(0))) {
+      println(s"${this.getClass.getName}需要一个 :yyyy-MM-dd 格式的日期参数")
+      System.exit(0)
+    }
+  }
+
+  /**
+    * 初始化扫描器
+    *
+    * @param startTime
+    * @param endTime
+    * @return
+    */
+  def initScan(startTime: Long, endTime: Long) = {
+    val scan = new Scan()
+    scan.setStartRow(startTime.toString.getBytes())
+    scan.setStopRow(endTime.toString.getBytes())
+    scan.addColumn(LogConstants.LOG_HBASE_TABLE_FAMILY.getBytes(), LogConstants.LOG_COLUMNS_NAME_DEVICE_ID.getBytes())
+    scan.addColumn(LogConstants.LOG_HBASE_TABLE_FAMILY.getBytes(), LogConstants.LOG_COLUMNS_NAME_ALBUM_ID.getBytes())
+    scan.addColumn(LogConstants.LOG_HBASE_TABLE_FAMILY.getBytes(), LogConstants.LOG_COLUMNS_NAME_ANCHOR_ID.getBytes())
+    scan.addColumn(LogConstants.LOG_HBASE_TABLE_FAMILY.getBytes(), LogConstants.LOG_COLUMNS_NAME_PLAY_TIME.getBytes())
+    scan
+  }
+
+
+  /**
+    * 将普通scan转换成base64字符串
+    *
+    * @param scan
+    * @return
+    */
+  def convertBase64Scan(scan: Scan) = {
+    val protoScan = ProtobufUtil.toScan(scan)
+    Base64.encodeBytes(protoScan.toByteArray)
+  }
+
+  /**
+    * 从hbase中加载数据
+    *
+    * @param startTime
+    * @param endTime
+    * @param sparkSession
+    */
+  def loadLogDataFromHbase(startTime: Long, endTime: Long, sparkSession: SparkSession) = {
+    //初始化扫描器
+    val scan = initScan(startTime, endTime)
+    //scan转换成base64字符串
+    val base64Scan = convertBase64Scan(scan)
+    //创建配置文件对象
+    val jobConf = new JobConf(base64Scan)
+    jobConf.set(TableInputFormat.INPUT_TABLE, LogConstants.LOG_HBASE_TABLE)
+    jobConf.set(TableInputFormat.SCAN, base64Scan)
+
+    val tags4LogRDD = sparkSession.sparkContext.newAPIHadoopRDD(jobConf, classOf[TableInputFormat], classOf[ImmutableBytesWritable], classOf[Result]).map(t2 => {
+      val result = t2._2
+      val deviceId = Bytes.toString(result.getValue(LogConstants.LOG_HBASE_TABLE_FAMILY.getBytes(), LogConstants.LOG_COLUMNS_NAME_DEVICE_ID.getBytes()))
+      val albumId = Bytes.toString(result.getValue(LogConstants.LOG_HBASE_TABLE_FAMILY.getBytes(), LogConstants.LOG_COLUMNS_NAME_ALBUM_ID.getBytes()))
+      val anchorId = Bytes.toString(result.getValue(LogConstants.LOG_HBASE_TABLE_FAMILY.getBytes(), LogConstants.LOG_COLUMNS_NAME_ANCHOR_ID.getBytes()))
+      val playTime = Bytes.toString(result.getValue(LogConstants.LOG_HBASE_TABLE_FAMILY.getBytes(), LogConstants.LOG_COLUMNS_NAME_PLAY_TIME.getBytes()))
+      val logs = new Logs(deviceId = deviceId, albumId = albumId, anchorId = anchorId, playTime = playTime)
+      (deviceId, Tags4UserInterested.makeTags(logs).toList)
+    })
+      .filter(t2 => t2._2.size > 0)
+    tags4LogRDD
+  }
+
+  /**
+    * 从mysql中加载数据
+    *
+    * @param tableName
+    * @param sparkSession
+    * @return
+    */
+  def loadDataFromMySql(tableName: String, sparkSession: SparkSession) = {
+    val url = "jdbc:mysql://192.168.80.8:3306/kugou_report?useUnicode=true&characterEncoding=UTF-8"
+    val prop = new Properties()
+    //标明使用的数据库连接驱动
+    prop.put("driver", "com.mysql.jdbc.Driver")
+    prop.put("user", "root")
+    prop.put("password", "root")
+    //Dataset<Row> ===> DataFrame
+    sparkSession.read.jdbc(url, tableName, prop)
+  }
+
+  def main(args: Array[String]): Unit = {
+    //验证日期是否正确
+    validateArgs(args)
+
+    val startTime = Utils.parseDateToLong(args(0), "yyyy-MM-dd")
+    val endTime = Utils.caculateDate(startTime, 7)
+    val sparkSession = SparkSession.builder().appName(this.getClass.getSimpleName).master("local[*]").getOrCreate()
+
+    //加载专辑数据Dataset<Row>===>Dataset<(String,String)>
+    //导入隐式转换
+    import sparkSession.implicits._
+    //(albumId,tags)
+    val albumData = loadDataFromMySql("dt_album", sparkSession).map(row => (row.getAs[Int]("albumId").toString, row.getAs[String]("tags"))).collect().toMap
+    val albumDataBroadCast = sparkSession.sparkContext.broadcast(albumData)
+
+    //加载专辑标签数据
+    //(tagId,tagName)
+    val tagData = loadDataFromMySql("tag", sparkSession).map(row => (row.getAs[Int]("tagId").toString, row.getAs[String]("tagName"))).collect().toMap
+    val tagDataBroadCast = sparkSession.sparkContext.broadcast(tagData)
+
+
+    //从hbase中加载数据
+    /**
+      * (865315030334771,List((interested_album_id_16431,1), (interested_program_time_level_10_20,1), (interested_anchor_id_11569,1)))
+      * (865315030334771,List((interested_album_id_16431,1), (interested_anchor_id_11569,1)))
+      */
+    val tags4LogRDD = loadLogDataFromHbase(startTime, endTime, sparkSession)
+
+    //reduceByKey(_+_)
+    //(deviceId,List)
+    val reduceRDD = tags4LogRDD.reduceByKey {
+      case (list0, list1) => {
+        //List((interested_album_id_16431,1), (interested_program_time_level_10_20,1), (interested_anchor_id_11569,1),(interested_album_id_16431,1), (interested_anchor_id_11569,1))
+        (list0 ++ list1)
+          //List(
+          // (interested_album_id_16431,List((interested_album_id_16431,1),(interested_album_id_16431,1)))
+          // (interested_anchor_id_11569,List((interested_anchor_id_11569,1), (interested_anchor_id_11569,1)))
+          // (interested_program_time_level_10_20,1),List( (interested_program_time_level_10_20,1)))
+          // )
+          .groupBy(x => x._1)
+          //List(
+          // (interested_album_id_16432,3)
+          // (interested_album_id_16431,2)
+          // (interested_anchor_id_11569,2)
+          // (interested_program_time_level_10_20,1))
+          // )
+          .map(g => (g._1, g._2.map(x => x._2).sum)).toList
+      }
+    }
+
+    val ds = reduceRDD.map(t2 => {
+      val deviceId = t2._1
+      //对专辑进行处理
+      val list = t2._2
+      //获取用户感兴趣的专辑id
+      val albums = list.filter(x => x._1.contains(TagsConstants.INTERESTED_ALBUM_ID_PREFIX)).sortBy(x => -x._2).map(x => x._1.split("_")(3))
+      val interested_album_ids = albums.mkString(",")
+      //获取感兴趣的专辑标签Id
+      //Array("325,327,346,379,352","325,327,346,379,352")
+      //Array(Array(325,327,346,379,352),Array(325,327,346,379,352))
+      //Array(325,327,346,379,352)
+      val albumsTags = albums.map(abumId => albumDataBroadCast.value.getOrElse(abumId, null)).filter(x => x != null).flatMap(tags => tags.split(",")).distinct
+
+      val interested_album_tags_id = albumsTags.mkString(",")
+      //获取专辑标签
+      val interested_album_tags_name = albumsTags.map(tagId => tagDataBroadCast.value.getOrElse(tagId, null)).filter(x => x != null).mkString(",")
+      //主播id
+      val interested_anchor_ids = list.filter(x => x._1.contains(TagsConstants.INTERESTED_ANCHOR_ID_PREFIX)).sortBy(x => -x._2).map(x => x._1.split("_")(3)).mkString(",")
+      //
+      val interest_program_time_level = list.filter(x => x._1.contains(TagsConstants.INTERESTED_PROGRAM_TIME_LEVEL_PREFIX)).sortBy(x => -x._2).map(x => {
+        val fields = x._1.split("_")
+        fields(4) + "_" + fields(5)
+      }).mkString(",")
+      UserInterested(deviceId, interested_album_ids, interested_album_tags_id, interested_album_tags_name, interested_anchor_ids, interest_program_time_level)
+    }).toDS().createOrReplaceTempView("user_interested")
+    sparkSession.sql("select * from user_interested where interested_album_tags_name !='' ").show()
+
+    sparkSession.stop()
+
+  }
+
+}
