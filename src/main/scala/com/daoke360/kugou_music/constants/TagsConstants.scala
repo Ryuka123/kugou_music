@@ -19,7 +19,13 @@ object TagsConstants {
 
 
   //设备标签前缀
-  val DEVICE = "device_"
+  val DEVICE_ID_PREFIX = "device_id_"
+  val DEVICE_MODEL_NUM_PREFIX = "device_model_num_"
+  val DEVICE_OS_NAME_PREFIX = "device_os_name_"
+  val DEVICE_OS_VERSION_PREFIX = "device_os_version_"
+
+  //用户使用app行为标签前缀
+  val BEHAVIOR_USE_TIME_PERIOD_PREFIX = "behavior_use_time_period_"
 
 
 }

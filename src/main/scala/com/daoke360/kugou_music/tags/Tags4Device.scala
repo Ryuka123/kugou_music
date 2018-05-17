@@ -23,11 +23,14 @@ object Tags4Device extends Tags {
     if (args.length > 0) {
       val logs = args(0).asInstanceOf[Logs]
       if (StringUtils.isNotBlank(logs.deviceId))
-        deviceMap += (TagsConstants.DEVICE + logs.deviceId -> 1)
+        deviceMap += (TagsConstants.DEVICE_ID_PREFIX + logs.deviceId -> 1)
       if (StringUtils.isNotBlank(logs.osName))
-        deviceMap += (TagsConstants.DEVICE + logs.osName -> 1)
-      if (StringUtils.isNotBlank(logs.modelNum))
-        deviceMap += (TagsConstants.DEVICE + logs.modelNum -> 1)
+        deviceMap += (TagsConstants.DEVICE_OS_NAME_PREFIX + logs.osName -> 1)
+      if (StringUtils.isNotBlank(logs.osVersion))
+        deviceMap += (TagsConstants.DEVICE_OS_VERSION_PREFIX + logs.osVersion -> 1)
+      if (StringUtils.isNotBlank(logs.modelNum)) {
+        deviceMap += (TagsConstants.DEVICE_MODEL_NUM_PREFIX + logs.modelNum -> 1)
+      }
     }
     deviceMap
   }
